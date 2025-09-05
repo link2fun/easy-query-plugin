@@ -173,7 +173,17 @@ public class EasyQueryDocumentChangeHandler implements DocumentListener, EditorF
                                     }
                                 }
                             } else {
-                                psiDirectory.add(tmpFile);
+                                try {
+                                    // 检查PsiFile是否有效，避免InvalidVirtualFileAccessException
+                                    if (tmpFile.isValid()) {
+                                        psiDirectory.add(tmpFile);
+                                    } else {
+                                        log.info("尝试添加无效的PsiFile: " + tmpFile.getName());
+                                    }
+                                } catch (Exception ex) {
+                                    log.error("添加文件到目录时发生错误: " + tmpFile.getName(), ex);
+                                    // 继续处理其他文件，不让单个文件的错误影响整个流程
+                                }
                             }
                         }
                     }
