@@ -27,45 +27,45 @@ public class ClassUtil {
     public static BeanPropTypeEnum hasGetterAndSetter(PsiClass psiClass, String propertyName) {
         String capitalizedPropertyName = capitalize(propertyName);
 
-        // 获取所有方法（包括继承的），避免触发PSI增强机制
-        PsiMethod[] allMethods = psiClass.getMethods();
-
         // 检查是否有公共的 getter 方法
-        BeanPropTypeEnum beanProp = findGetterMethod(allMethods, capitalizedPropertyName, "get");
-        if(beanProp == BeanPropTypeEnum.NOT){
-            beanProp = findGetterMethod(allMethods, capitalizedPropertyName, "is");
-            if(beanProp == BeanPropTypeEnum.NOT){
+        BeanPropTypeEnum beanProp = propertyIsBeanProp(psiClass, capitalizedPropertyName, "get");
+        if(beanProp==BeanPropTypeEnum.NOT){
+            beanProp = propertyIsBeanProp(psiClass, capitalizedPropertyName, "is");
+            if(beanProp==BeanPropTypeEnum.NOT){
                 return beanProp;
             }
         }
+//        PsiMethod[] getMethods = psiClass.findMethodsByName("get" + capitalizedPropertyName, true);
+//        if(getMethods.length==0){
+//            return false;
+//        }
+//        PsiMethod getter = getMethods[0];
+//        if (getter == null || !getter.hasModifierProperty(PsiModifier.PUBLIC)) {
+//            return false;
+//        }
 
         // 检查是否有公共的 setter 方法
-        boolean hasPublicSetter = findSetterMethod(allMethods, capitalizedPropertyName);
-        if(!hasPublicSetter){
+        PsiMethod[] setMethods = psiClass.findMethodsByName("set" + capitalizedPropertyName, true);
+        if(setMethods.length==0){
             return BeanPropTypeEnum.NOT;
         }
-
-        return beanProp;
-    }
-
-    private static BeanPropTypeEnum findGetterMethod(PsiMethod[] methods, String capitalizedPropertyName, String prefix) {
-        String methodName = prefix + capitalizedPropertyName;
-        for (PsiMethod method : methods) {
-            if (methodName.equals(method.getName()) && method.hasModifierProperty(PsiModifier.PUBLIC)) {
-                return Objects.equals("is", prefix) ? BeanPropTypeEnum.IS : BeanPropTypeEnum.GET;
-            }
+        PsiMethod setter = setMethods[0];
+        if(setter != null && setter.hasModifierProperty(PsiModifier.PUBLIC)){
+            return beanProp;
         }
         return BeanPropTypeEnum.NOT;
     }
 
-    private static boolean findSetterMethod(PsiMethod[] methods, String capitalizedPropertyName) {
-        String methodName = "set" + capitalizedPropertyName;
-        for (PsiMethod method : methods) {
-            if (methodName.equals(method.getName()) && method.hasModifierProperty(PsiModifier.PUBLIC)) {
-                return true;
-            }
+    private static BeanPropTypeEnum propertyIsBeanProp(PsiClass psiClass,String capitalizedPropertyName,String prefix){
+        PsiMethod[] getMethods = psiClass.findMethodsByName(prefix + capitalizedPropertyName, true);
+        if(getMethods.length==0){
+            return BeanPropTypeEnum.NOT;
         }
-        return false;
+        PsiMethod getter = getMethods[0];
+        if (getter == null || !getter.hasModifierProperty(PsiModifier.PUBLIC)) {
+            return BeanPropTypeEnum.NOT;
+        }
+        return Objects.equals("is",prefix)?BeanPropTypeEnum.IS:BeanPropTypeEnum.GET;
     }
 
     private static String capitalize(String s) {
