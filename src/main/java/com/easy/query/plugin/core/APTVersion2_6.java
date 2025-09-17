@@ -18,6 +18,7 @@ import com.easy.query.plugin.core.util.PsiUtil;
 import com.easy.query.plugin.core.util.StrUtil;
 import com.easy.query.plugin.core.util.VelocityUtils;
 import com.easy.query.plugin.core.util.VirtualFileUtils;
+import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.module.Module;
 import com.intellij.openapi.project.DumbService;
@@ -203,7 +204,27 @@ public class APTVersion2_6 {
             context.put("aptFileCompiler", aptFileCompiler);
             String suffix = fileType == FileTypeEnum.Kotlin ? ".kt" : ".java"; //Modules.getProjectTypeSuffix(moduleForFile);
             PsiFile psiProxyFile = VelocityUtils.render(project, context, Template.getTemplateContent("AptTemplate2_6" + suffix), proxyEntityName + suffix);
-            CodeStyleManager.getInstance(project).reformat(psiProxyFile);
+
+            // 异步执行代码格式化，避免阻塞主线程
+            long startTime = System.currentTimeMillis();
+            ApplicationManager.getApplication().invokeLater(() -> {
+                try {
+                    ApplicationManager.getApplication().runWriteAction(() -> {
+                        try {
+                            CodeStyleManager.getInstance(project).reformat(psiProxyFile);
+                            long duration = System.currentTimeMillis() - startTime;
+                            if (duration > 3000) { // 超过3秒记录警告
+                                log.warn("Code formatting took " + duration + "ms for " + proxyEntityName);
+                            }
+                        } catch (Exception e) {
+                            log.error("Code formatting failed for: " + proxyEntityName, e);
+                        }
+                    });
+                } catch (Exception e) {
+                    log.error("Async code formatting failed for: " + proxyEntityName, e);
+                }
+            });
+
             psiDirectoryMap.computeIfAbsent(psiDirectory, k -> new ArrayList<>()).add(new GenerateFileEntry(psiProxyFile, allCompileFrom, strategy));
         });
     }
